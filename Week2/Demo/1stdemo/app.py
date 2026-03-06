@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, make_response
+from flask import Flask, jsonify, request, make_response, url_for
 
 app = Flask(__name__)
 
@@ -8,6 +8,15 @@ books = [
     {"id": 2, "title": "The Pragmatic Programmer", "author": "Andrew Hunt", "status": "available"},
     {"id": 3, "title": "Refactoring", "author": "Martin Fowler", "status": "borrowed"}
 ]
+
+# --- HELPER FUNCTION: TẠO HATEOAS LINKS ---
+def get_book_links(book_id):
+    """Tạo các liên kết điều hướng cho một cuốn sách cụ thể"""
+    return {
+        "self": url_for('get_book', book_id=book_id, _external=True),
+        "update": url_for('update_book', book_id=book_id, _external=True),
+        "delete": url_for('delete_book', book_id=book_id, _external=True)
+    }
 
 # --- PHẦN 1: ĐẢM BẢO CHUẨN CLIENT-SERVER QUA ERROR HANDLERS ---
 # Bất kể lỗi gì xảy ra, Server đều trả về cấu trúc JSON nhất quán.
@@ -51,6 +60,13 @@ def home():
 # 1. Lấy danh sách toàn bộ sách
 @app.route('/books', methods=['GET'])
 def get_all_books():
+    # Thêm links cho từng cuốn sách trong danh sách
+    data_with_links = []
+    for book in books:
+        book_copy = book.copy()
+        book_copy['_links'] = get_book_links(book['id'])
+        data_with_links.append(book_copy)
+
     # Trả về một object bọc ngoài (envelope) để Client dễ mở rộng sau này
     return jsonify({
         "status": "success",
@@ -84,7 +100,11 @@ def add_book():
         "status": "available"
     }
     books.append(new_book)
-    return jsonify(new_book), 201
+
+    # Trả về kèm link của chính tài nguyên vừa tạo
+    response_data = new_book.copy()
+    response_data['_links'] = get_book_links(new_book["id"])
+    return jsonify({"status": "success", "data": response_data}), 201
 
 # 4. Cập nhật thông tin sách
 @app.route('/books/<int:book_id>', methods=['PUT'])
