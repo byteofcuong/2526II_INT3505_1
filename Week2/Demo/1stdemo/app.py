@@ -1,6 +1,10 @@
 from flask import Flask, jsonify, request, make_response, url_for
+from functools import wraps
 
 app = Flask(__name__)
+
+# Cấu hình API Key giả lập (Trong thực tế sẽ lưu ở DB hoặc Env)
+VALID_API_KEY = "secret-123"
 
 # Giả lập Database trong bộ nhớ (In-memory)
 books = [
@@ -8,6 +12,22 @@ books = [
     {"id": 2, "title": "The Pragmatic Programmer", "author": "Andrew Hunt", "status": "available"},
     {"id": 3, "title": "Refactoring", "author": "Martin Fowler", "status": "borrowed"}
 ]
+
+# RÀNG BUỘC: STATELESS (XÁC THỰC QUA HEADER)
+def require_api_key(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Server không dùng Session, mà kiểm tra Header trong MỖI request
+        api_key = request.headers.get('X-API-KEY')
+        if api_key and api_key == VALID_API_KEY:
+            return f(*args, **kwargs)
+        
+        # Nếu không có key hoặc sai key, trả về 401 Unauthorized
+        return make_response(jsonify({
+            "status": "error",
+            "message": "Unauthorized: Bạn cần cung cấp API Key hợp lệ trong Header 'X-API-KEY'"
+        }), 401)
+    return decorated_function
 
 # --- HELPER FUNCTION: TẠO HATEOAS LINKS ---
 def get_book_links(book_id):
@@ -59,6 +79,7 @@ def home():
 
 # 1. Lấy danh sách toàn bộ sách
 @app.route('/books', methods=['GET'])
+@require_api_key
 def get_all_books():
     # Thêm links cho từng cuốn sách trong danh sách
     data_with_links = []
@@ -76,6 +97,7 @@ def get_all_books():
 
 # 2. Lấy thông tin chi tiết 1 cuốn sách
 @app.route('/books/<int:book_id>', methods=['GET'])
+@require_api_key
 def get_book(book_id):
     book = next((b for b in books if b['id'] == book_id), None)
     if book:
@@ -84,6 +106,7 @@ def get_book(book_id):
 
 # 3. Thêm một cuốn sách mới
 @app.route('/books', methods=['POST'])
+@require_api_key
 def add_book():
 # Kiểm tra dữ liệu đầu vào từ Client
     if not request.json or 'title' not in request.json:
@@ -108,16 +131,19 @@ def add_book():
 
 # 4. Cập nhật thông tin sách
 @app.route('/books/<int:book_id>', methods=['PUT'])
+@require_api_key
 def update_book(book_id):
     book = next((b for b in books if b['id'] == book_id), None)
     if not book:
         return not_found(None)
     
-    data = request.json
-    book.update(data)
-    return jsonify(book)
+    book.update(request.json)
+    res = book.copy()
+    res['_links'] = get_book_links(book_id)
+    return jsonify({"status": "success", "data": res})
 
 @app.route('/books/<int:book_id>', methods=['DELETE'])
+@require_api_key
 def delete_book(book_id):
     global books
     original_length = len(books)
