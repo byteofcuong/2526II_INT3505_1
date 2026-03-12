@@ -1,5 +1,7 @@
 from flask import Flask, jsonify, request, make_response, url_for
 from functools import wraps
+import hashlib
+import json
 
 app = Flask(__name__)
 
@@ -88,21 +90,36 @@ def get_all_books():
         book_copy['_links'] = get_book_links(book['id'])
         data_with_links.append(book_copy)
 
-    # Trả về một object bọc ngoài (envelope) để Client dễ mở rộng sau này
-    return jsonify({
-        "status": "success",
-        "data": books,
-        "total": len(books)
-    })
+    content = jsonify({"status": "success", "data": data_with_links, "total": len(books)})
+    # --- RÀNG BUỘC: CACHEABLE (Cache-Control) ---
+    response = make_response(content)
+    # Dặn Client: "Dữ liệu này có thể dùng lại trong 60 giây, không cần hỏi lại Server"
+    response.headers['Cache-Control'] = 'public, max-age=60'
+    return response
 
 # 2. Lấy thông tin chi tiết 1 cuốn sách
 @app.route('/books/<int:book_id>', methods=['GET'])
 @require_api_key
 def get_book(book_id):
     book = next((b for b in books if b['id'] == book_id), None)
-    if book:
-        return jsonify({"status": "success", "data": book})
-    return not_found(None)
+    if not book:
+        return make_response(jsonify({"status": "error", "message": "Not found"}), 404)
+    
+    res_data = book.copy()
+    res_data['_links'] = get_book_links(book_id)
+    
+    # --- RÀNG BUỘC: CACHEABLE (ETag) ---
+    # Tạo một mã hash dựa trên nội dung cuốn sách
+    etag = hashlib.md5(json.dumps(res_data, sort_keys=True).encode()).hexdigest()
+    
+    # Kiểm tra xem Client có gửi kèm mã ETag cũ (If-None-Match) không
+    if request.headers.get('If-None-Match') == etag:
+        return make_response('', 304) # Trả về 304 (Dữ liệu vẫn thế, đừng tải lại)
+
+    response = make_response(jsonify({"status": "success", "data": res_data}))
+    response.set_etag(etag)
+    response.headers['Cache-Control'] = 'public, max-age=120'
+    return response
 
 # 3. Thêm một cuốn sách mới
 @app.route('/books', methods=['POST'])
