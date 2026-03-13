@@ -9,10 +9,6 @@ users = [
 
 @legacy_bp.route('/addNewUser', methods=['GET'])
 def add_user():
-    """
-    Lỗi: Tên có động từ 'add', dùng CamelCase.
-    Lỗi: Dùng GET để tạo dữ liệu (Rất nguy hiểm vì GET có thể bị cache hoặc lưu log).
-    """
     name = request.args.get('name')
     if name:
         new_id = len(users) + 1

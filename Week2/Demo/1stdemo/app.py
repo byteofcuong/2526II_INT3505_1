@@ -2,50 +2,58 @@ from flask import Flask, jsonify, request, make_response, url_for
 from functools import wraps
 import hashlib
 import json
+import jwt
+import datetime
 
 app = Flask(__name__)
 
-# Cấu hình API Key giả lập (Trong thực tế sẽ lưu ở DB hoặc Env)
-VALID_API_KEY = "secret-123"
+app.config['SECRET_KEY'] = '15086677'
 
-# Giả lập Database trong bộ nhớ (In-memory)
+users = [
+    {"id": 1, "username": "admin", "password": "password123"},
+    {"id": 2, "username": "student", "password": "123"}
+]
+
 books = [
     {"id": 1, "title": "Clean Code", "author": "Robert C. Martin", "status": "available"},
     {"id": 2, "title": "The Pragmatic Programmer", "author": "Andrew Hunt", "status": "available"},
     {"id": 3, "title": "Refactoring", "author": "Martin Fowler", "status": "borrowed"}
 ]
 
-# RÀNG BUỘC: STATELESS (XÁC THỰC QUA HEADER)
-def require_api_key(f):
+# Xác thực JWT
+def token_required(f):
     @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Server không dùng Session, mà kiểm tra Header trong MỖI request
-        api_key = request.headers.get('X-API-KEY')
-        if api_key and api_key == VALID_API_KEY:
-            return f(*args, **kwargs)
-        
-        # Nếu không có key hoặc sai key, trả về 401 Unauthorized
-        return make_response(jsonify({
-            "status": "error",
-            "message": "Unauthorized: Bạn cần cung cấp API Key hợp lệ trong Header 'X-API-KEY'"
-        }), 401)
-    return decorated_function
+    def decorated(*args, **kwargs):
+        token = None
 
-# --- HELPER FUNCTION: TẠO HATEOAS LINKS ---
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(" ")[1]
+
+        if not token:
+            return make_response(jsonify({'message': 'Thiếu Token! Vui lòng đăng nhập.'}), 401)
+
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+
+        except jwt.ExpiredSignatureError:
+            return make_response(jsonify({'message': 'Token đã hết hạn! Vui lòng đăng nhập lại.'}), 401)
+        except jwt.InvalidTokenError:
+            return make_response(jsonify({'message': 'Token không hợp lệ!'}), 401)
+
+        return f(*args, **kwargs)
+    return decorated
+
 def get_book_links(book_id):
-    """Tạo các liên kết điều hướng cho một cuốn sách cụ thể"""
     return {
         "self": url_for('get_book', book_id=book_id, _external=True),
         "update": url_for('update_book', book_id=book_id, _external=True),
         "delete": url_for('delete_book', book_id=book_id, _external=True)
     }
 
-# --- PHẦN 1: ĐẢM BẢO CHUẨN CLIENT-SERVER QUA ERROR HANDLERS ---
-# Bất kể lỗi gì xảy ra, Server đều trả về cấu trúc JSON nhất quán.
-
 @app.errorhandler(404)
 def not_found(error):
-    """Xử lý lỗi không tìm thấy tài nguyên (URL sai hoặc ID không tồn tại)"""
     return make_response(jsonify({
         "status": "error",
         "message": "Resource not found"
@@ -53,7 +61,6 @@ def not_found(error):
 
 @app.errorhandler(405)
 def method_not_allowed(error):
-    """Xử lý lỗi dùng sai phương thức HTTP (VD: Dùng GET cho route chỉ nhận POST)"""
     return make_response(jsonify({
         "status": "error",
         "message": "Method not allowed"
@@ -61,29 +68,43 @@ def method_not_allowed(error):
 
 @app.errorhandler(500)
 def internal_server_error(error):
-    """Xử lý lỗi hệ thống"""
     return make_response(jsonify({
         "status": "error",
         "message": "Internal server error"
     }), 500)
 
 
-# --- PHẦN 2: CÁC API ENDPOINTS ---
-
 @app.route('/')
 def home():
-    # Ngay cả trang chủ cũng trả về JSON thay vì String/HTML
     return jsonify({
         "api_name": "Smart Book API",
         "version": "2.0",
         "constraints_satisfied": ["Client-Server"]
     })
 
-# 1. Lấy danh sách toàn bộ sách
+# Login và tạo JWT token
+@app.route('/login', methods=['POST'])
+def login():
+    auth_data = request.json
+    if not auth_data or not auth_data.get('username') or not auth_data.get('password'):
+        return make_response(jsonify({'message': 'Thiếu thông tin đăng nhập'}), 400)
+
+    user = next((u for u in users if u['username'] == auth_data.get('username')), None)
+
+    if user and user['password'] == auth_data.get('password'):
+
+        token = jwt.encode({
+            'user_id': user['id'],
+            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=30)
+        }, app.config['SECRET_KEY'], algorithm="HS256")
+
+        return jsonify({'message': 'Đăng nhập thành công', 'token': token})
+
+    return make_response(jsonify({'message': 'Sai tài khoản hoặc mật khẩu'}), 401)
+
 @app.route('/books', methods=['GET'])
-@require_api_key
+@token_required
 def get_all_books():
-    # Thêm links cho từng cuốn sách trong danh sách
     data_with_links = []
     for book in books:
         book_copy = book.copy()
@@ -91,15 +112,13 @@ def get_all_books():
         data_with_links.append(book_copy)
 
     content = jsonify({"status": "success", "data": data_with_links, "total": len(books)})
-    # --- RÀNG BUỘC: CACHEABLE (Cache-Control) ---
+
     response = make_response(content)
-    # Dặn Client: "Dữ liệu này có thể dùng lại trong 60 giây, không cần hỏi lại Server"
     response.headers['Cache-Control'] = 'public, max-age=60'
     return response
 
-# 2. Lấy thông tin chi tiết 1 cuốn sách
 @app.route('/books/<int:book_id>', methods=['GET'])
-@require_api_key
+@token_required
 def get_book(book_id):
     book = next((b for b in books if b['id'] == book_id), None)
     if not book:
@@ -108,24 +127,18 @@ def get_book(book_id):
     res_data = book.copy()
     res_data['_links'] = get_book_links(book_id)
     
-    # --- RÀNG BUỘC: CACHEABLE (ETag) ---
-    # Tạo một mã hash dựa trên nội dung cuốn sách
     etag = hashlib.md5(json.dumps(res_data, sort_keys=True).encode()).hexdigest()
-    
-    # Kiểm tra xem Client có gửi kèm mã ETag cũ (If-None-Match) không
     if request.headers.get('If-None-Match') == etag:
-        return make_response('', 304) # Trả về 304 (Dữ liệu vẫn thế, đừng tải lại)
+        return make_response('', 304) 
 
     response = make_response(jsonify({"status": "success", "data": res_data}))
     response.set_etag(etag)
     response.headers['Cache-Control'] = 'public, max-age=120'
     return response
 
-# 3. Thêm một cuốn sách mới
 @app.route('/books', methods=['POST'])
-@require_api_key
+@token_required
 def add_book():
-# Kiểm tra dữ liệu đầu vào từ Client
     if not request.json or 'title' not in request.json:
         return make_response(jsonify({
             "status": "error", 
@@ -141,14 +154,12 @@ def add_book():
     }
     books.append(new_book)
 
-    # Trả về kèm link của chính tài nguyên vừa tạo
     response_data = new_book.copy()
     response_data['_links'] = get_book_links(new_book["id"])
     return jsonify({"status": "success", "data": response_data}), 201
 
-# 4. Cập nhật thông tin sách
 @app.route('/books/<int:book_id>', methods=['PUT'])
-@require_api_key
+@token_required
 def update_book(book_id):
     book = next((b for b in books if b['id'] == book_id), None)
     if not book:
@@ -160,7 +171,7 @@ def update_book(book_id):
     return jsonify({"status": "success", "data": res})
 
 @app.route('/books/<int:book_id>', methods=['DELETE'])
-@require_api_key
+@token_required
 def delete_book(book_id):
     global books
     original_length = len(books)
