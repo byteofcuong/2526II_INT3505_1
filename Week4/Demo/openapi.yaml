@@ -1,0 +1,112 @@
+openapi: 3.0.0
+info:
+  title: Smart Library API
+  version: 1.0.0
+  description: Tài liệu OpenAPI mô tả cấu trúc cho ứng dụng Smart Library.
+servers:
+  - url: http://localhost:5000
+    description: Local server
+  - url: https://api.smartlibrary.com
+    description: Production server
+
+paths:
+  /books:
+    get:
+      summary: Lấy danh sách các cuốn sách
+      description: Trả về danh sách tất cả các cuốn sách hiện có.
+      tags:
+        - Books
+      parameters:
+        - $ref: '#/components/parameters/SortParam'
+      responses:
+        '200':
+          description: Thành công trả về danh sách
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+    post:
+      summary: Thêm một cuốn sách mới
+      description: Tạo mới một cuốn sách. Yêu cầu phải có token xác thực.
+      tags:
+        - Books
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Book'
+      responses:
+        '201':
+          description: Đã tạo sách thành công
+          
+  /books/{bookId}:
+    get:
+      summary: Lấy thông tin chi tiết một cuốn sách
+      description: Trả về dữ liệu của một cuốn sách cụ thể dựa trên ID.
+      tags:
+        - Books
+      parameters:
+        - $ref: '#/components/parameters/BookIdParam'
+      responses:
+        '200':
+          description: Tìm thấy sách
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '404':
+          description: Không tìm thấy sách với ID tương ứng
+
+components:
+  parameters:
+    SortParam:
+      in: query
+      name: sort
+      required: false
+      schema:
+        type: string
+      description: Sắp xếp kết quả trả về
+    BookIdParam:
+      in: path
+      name: bookId
+      required: true
+      schema:
+        type: integer
+      description: ID của cuốn sách cần tìm
+      
+  schemas:
+    Book:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: integer
+          description: ID duy nhất của cuốn sách
+        title:
+          type: string
+          maxLength: 100
+          description: Tiêu đề cuốn sách
+        author:
+          $ref: '#/components/schemas/Author'
+          
+    Author:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Nhập token JWT của bạn vào đây để xác thực
