@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: Smart Library API
   version: 1.0.0
-  description: Tài liệu OpenAPI mô tả cấu trúc cho ứng dụng Smart Library.
+  description: OpenAPI
 servers:
   - url: http://localhost:5000
     description: Local server
@@ -13,7 +13,7 @@ paths:
   /books:
     get:
       summary: Lấy danh sách các cuốn sách
-      description: Trả về danh sách tất cả các cuốn sách hiện có.
+      description: Trả về danh sách tất cả các cuốn sách hiện có
       tags:
         - Books
       parameters:
@@ -29,7 +29,7 @@ paths:
                   $ref: '#/components/schemas/Book'
     post:
       summary: Thêm một cuốn sách mới
-      description: Tạo mới một cuốn sách. Yêu cầu phải có token xác thực.
+      description: Tạo mới một cuốn sách. Yêu cầu phải có token xác thực
       tags:
         - Books
       security:
@@ -47,7 +47,7 @@ paths:
   /books/{bookId}:
     get:
       summary: Lấy thông tin chi tiết một cuốn sách
-      description: Trả về dữ liệu của một cuốn sách cụ thể dựa trên ID.
+      description: Trả về dữ liệu của một cuốn sách cụ thể dựa trên ID
       tags:
         - Books
       parameters:
@@ -109,4 +109,4 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Nhập token JWT của bạn vào đây để xác thực
+      description: Nhập token JWT vào đây để xác thực

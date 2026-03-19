@@ -1,0 +1,103 @@
+openapi: 3.0.0
+info:
+  title: API Quản lý Sách
+  description: OpenAPI
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000
+    description: Local server
+paths:
+  /books:
+    get:
+      summary: Lấy danh sách tất cả các cuốn sách
+      responses:
+        '200':
+          description: Danh sách sách thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+    post:
+      summary: Thêm một cuốn sách mới
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookInput'
+      responses:
+        '201':
+          description: Thêm sách thành công
+  /books/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID của cuốn sách
+    get:
+      summary: Lấy thông tin một cuốn sách theo ID
+      responses:
+        '200':
+          description: Thông tin cuốn sách
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '404':
+          description: Không tìm thấy sách
+    put:
+      summary: Cập nhật thông tin cuốn sách theo ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookInput'
+      responses:
+        '200':
+          description: Cập nhật thành công
+        '404':
+          description: Không tìm thấy sách
+    delete:
+      summary: Xóa một cuốn sách theo ID
+      responses:
+        '204':
+          description: Xóa thành công
+        '404':
+          description: Không tìm thấy sách
+components:
+  schemas:
+    Book:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Đắc Nhân Tâm"
+        author:
+          type: string
+          example: "Dale Carnegie"
+        year:
+          type: integer
+          example: 1936
+    BookInput:
+      type: object
+      required:
+        - title
+        - author
+      properties:
+        title:
+          type: string
+          example: "Nhà Giả Kim"
+        author:
+          type: string
+          example: "Paulo Coelho"
+        year:
+          type: integer
+          example: 1988
