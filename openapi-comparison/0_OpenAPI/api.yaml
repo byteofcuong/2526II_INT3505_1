@@ -1,0 +1,108 @@
+openapi: 3.0.3
+info:
+  title: Library API
+  version: 1.0.0
+
+paths:
+  /books:
+    get:
+      summary: Get all books
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Book"
+
+    post:
+      summary: Add a new book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Book"
+      responses:
+        "201":
+          description: Created
+
+  /books/{id}:
+    get:
+      summary: Get book by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "404":
+          description: Not found
+
+  /loans:
+    post:
+      summary: Borrow a book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Loan"
+      responses:
+        "201":
+          description: Loan created
+        "400":
+          description: Book not available
+
+  /loans/{id}/return:
+    post:
+      summary: Return a book
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Returned successfully
+        "404":
+          description: Loan not found
+
+components:
+  schemas:
+    Book:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        author:
+          type: string
+        available:
+          type: boolean
+
+    Loan:
+      type: object
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        bookId:
+          type: integer
+        dueDate:
+          type: string
+          format: date
+        status:
+          type: string

@@ -1,0 +1,72 @@
+#%RAML 1.0
+title: Library API
+version: v1
+baseUri: http://localhost:8080/{version}
+mediaType: application/json
+
+types:
+  Book:
+    properties:
+      id: integer
+      title: string
+      author: string
+      available: boolean
+
+  Loan:
+    properties:
+      id: integer
+      memberId: integer
+      bookId: integer
+      dueDate: date-only
+      status: string
+
+/books:
+  get:
+    description: Get all books
+    responses:
+      200:
+        body:
+          application/json:
+            type: Book[]
+
+  post:
+    description: Add a new book
+    body:
+      application/json:
+        type: Book
+    responses:
+      201:
+        description: Created
+
+  /{id}:
+    get:
+      description: Get book by ID
+      responses:
+        200:
+          body:
+            application/json:
+              type: Book
+        404:
+          description: Not found
+
+/loans:
+  post:
+    description: Borrow a book
+    body:
+      application/json:
+        type: Loan
+    responses:
+      201:
+        description: Loan created
+      400:
+        description: Book not available
+
+  /{id}:
+    /return:
+      post:
+        description: Return a book
+        responses:
+          200:
+            description: Returned
+          404:
+            description: Not found

@@ -1,0 +1,48 @@
+FORMAT: 1A
+HOST: http://localhost:3000
+
+# Library API
+
+## Books [/books]
+
+### Get all books [GET]
+
++ Response 200 (application/json)
+
+### Add a book [POST]
+
++ Request (application/json)
+
++ Response 201 (application/json)
+
+## Book [/books/{id}]
+
++ Parameters
+    + id (number)
+
+### Get book by ID [GET]
+
++ Response 200 (application/json)
+
++ Response 404
+
+## Loans [/loans]
+
+### Borrow a book [POST]
+
++ Request (application/json)
+
++ Response 201 (application/json)
+
++ Response 400
+
+## Return [/loans/{id}/return]
+
++ Parameters
+    + id (number)
+
+### Return a book [POST]
+
++ Response 200 (application/json)
+
++ Response 404
