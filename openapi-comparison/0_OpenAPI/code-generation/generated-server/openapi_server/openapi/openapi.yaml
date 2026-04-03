@@ -1,0 +1,139 @@
+openapi: 3.0.3
+info:
+  title: Library API
+  version: 1.0.0
+servers:
+- url: /
+paths:
+  /books:
+    get:
+      operationId: books_get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Book"
+                type: array
+          description: OK
+      summary: Get all books
+      x-openapi-router-controller: openapi_server.controllers.default_controller
+    post:
+      operationId: books_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Book"
+        required: true
+      responses:
+        "201":
+          description: Created
+      summary: Add a new book
+      x-openapi-router-controller: openapi_server.controllers.default_controller
+  /books/{id}:
+    get:
+      operationId: books_id_get
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+          description: OK
+        "404":
+          description: Not found
+      summary: Get book by ID
+      x-openapi-router-controller: openapi_server.controllers.default_controller
+  /loans:
+    post:
+      operationId: loans_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Loan"
+        required: true
+      responses:
+        "201":
+          description: Loan created
+        "400":
+          description: Book not available
+      summary: Borrow a book
+      x-openapi-router-controller: openapi_server.controllers.default_controller
+  /loans/{id}/return:
+    post:
+      operationId: loans_id_return_post
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+        style: simple
+      responses:
+        "200":
+          description: Returned successfully
+        "404":
+          description: Loan not found
+      summary: Return a book
+      x-openapi-router-controller: openapi_server.controllers.default_controller
+components:
+  schemas:
+    Book:
+      example:
+        author: author
+        available: true
+        id: 0
+        title: title
+      properties:
+        id:
+          title: id
+          type: integer
+        title:
+          title: title
+          type: string
+        author:
+          title: author
+          type: string
+        available:
+          title: available
+          type: boolean
+      title: Book
+      type: object
+    Loan:
+      example:
+        dueDate: 2000-01-23
+        id: 0
+        memberId: 6
+        bookId: 1
+        status: status
+      properties:
+        id:
+          title: id
+          type: integer
+        memberId:
+          title: memberId
+          type: integer
+        bookId:
+          title: bookId
+          type: integer
+        dueDate:
+          format: date
+          title: dueDate
+          type: string
+        status:
+          title: status
+          type: string
+      title: Loan
+      type: object

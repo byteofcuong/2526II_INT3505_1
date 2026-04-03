@@ -13,10 +13,7 @@ curl http://localhost:4010/books
 
 ## 2. Sinh server code với openapi-generator
 
-npx @openapitools/openapi-generator-cli generate \
-  -i ../api.yaml \
-  -g python-flask \
-  -o ./generated-server
+npx @openapitools/openapi-generator-cli generate -i ../api.yaml -g python-flask -o ./generated-server
 
 Code sinh ra nằm trong thư mục `generated-server/`
 
