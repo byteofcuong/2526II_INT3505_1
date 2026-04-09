@@ -1,0 +1,11 @@
+============================================================
+VẬN HÀNH                       | OFFSET-LIMIT (DB Time)    | CURSOR-BASED (DB Time)   
+============================================================
+Trang đầu (Offset 0)           |            0.30 ms |            0.28 ms
+Trang giữa (Offset 500,000)    |           14.51 ms |            0.31 ms
+Trang gần cuối (Offset 900,000) |           25.58 ms |            0.39 ms
+Trang cuối cùng (Offset 999,950) |           26.78 ms |            0.36 ms
+============================================================
+Kết luận:
+ - Cursor-based: Thời gian lấy dữ liệu luôn ở mức tối ưu (O(1)) do sử dụng Index B-Tree đi thẳng đến ID.
+ - Offset/Limit: Thời gian thực thi tăng tuyến tính theo số lượng bản ghi bị bỏ qua (O(N)), càng về cuối càng chậm.

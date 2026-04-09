@@ -21,6 +21,6 @@ Code sinh ra nằm trong thư mục `generated-server/`
 
 ## 3. Chạy test tự động
 
-pip install requests
+pip install requests\
 python test_api.py
 

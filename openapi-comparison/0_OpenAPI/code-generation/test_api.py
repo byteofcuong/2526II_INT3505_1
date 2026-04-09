@@ -8,6 +8,7 @@ def test_get_books():
 
 def test_add_book():
     r = requests.post(f"{BASE_URL}/books", json={
+        "id": 1,
         "title": "Clean Code",
         "author": "Robert C. Martin",
         "available": True
@@ -20,9 +21,11 @@ def test_get_book():
 
 def test_borrow_book():
     r = requests.post(f"{BASE_URL}/loans", json={
+        "id": 1,
         "memberId": 1,
         "bookId": 1,
-        "dueDate": "2025-05-01"
+        "dueDate": "2025-05-01",
+        "status": "active"
     })
     print(f"POST /loans -> {r.status_code}")
 

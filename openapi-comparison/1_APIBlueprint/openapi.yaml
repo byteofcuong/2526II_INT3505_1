@@ -1,0 +1,93 @@
+openapi: 3.0.3
+info:
+  title: Library API
+  version: 1.0.0
+  description: ''
+
+paths:
+  /books:
+    get:
+      responses:
+        '200':
+          description: OK
+          headers: {}
+          content: {}
+      summary: Get all books
+      operationId: Get all books
+      description: ''
+      tags: []
+      parameters: []
+    post:
+      responses:
+        '201':
+          description: Created
+          headers: {}
+          content: {}
+      summary: Add a book
+      operationId: Add a book
+      description: ''
+      tags: []
+      parameters: []
+  /books/{id}:
+    get:
+      responses:
+        '200':
+          description: OK
+          headers: {}
+          content: {}
+        '404':
+          description: Not Found
+          headers: {}
+          content: {}
+      summary: Get book by ID
+      operationId: Get book by ID
+      description: ''
+      tags: []
+      parameters:
+        - name: id
+          in: path
+          description: ''
+          required: true
+          schema:
+            type: number
+  /loans:
+    post:
+      responses:
+        '201':
+          description: Created
+          headers: {}
+          content: {}
+        '400':
+          description: Bad Request
+          headers: {}
+          content: {}
+      summary: Borrow a book
+      operationId: Borrow a book
+      description: ''
+      tags: []
+      parameters: []
+  /loans/{id}/return:
+    post:
+      responses:
+        '200':
+          description: OK
+          headers: {}
+          content: {}
+        '404':
+          description: Not Found
+          headers: {}
+          content: {}
+      summary: Return a book
+      operationId: Return a book
+      description: ''
+      tags: []
+      parameters:
+        - name: id
+          in: path
+          description: ''
+          required: true
+          schema:
+            type: number
+components:
+  schemas: {}
+tags: []

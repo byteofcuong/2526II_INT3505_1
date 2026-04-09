@@ -3,7 +3,7 @@ import "@typespec/openapi3";
 
 using TypeSpec.Http;
 
-@service({ title: "Library API", version: "1.0.0" })
+@service({ title: "Library API" })
 namespace LibraryAPI;
 
 model Book {
