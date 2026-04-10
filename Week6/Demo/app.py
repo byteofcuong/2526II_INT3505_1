@@ -1,4 +1,6 @@
 import os
+import json
+import base64
 from datetime import timedelta
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
@@ -15,7 +17,7 @@ app = Flask(__name__)
 
 # 1. CẤU HÌNH JWT (Tương ứng các ràng buộc về Token)
 app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "mat-khau-bi-mat-sieucap-123456")
-app.config["JWT_ALGORITHM"] = "HS256" # Chỉ định HS256 làm thuật toán mã hóa (Step 4)
+app.config["JWT_ALGORITHM"] = "HS256" # => QUYẾT ĐỊNH HEADER: Thuật toán mã hóa HS256
 
 # Cấu hình thời hạn
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=1)    # Hết hạn trong 1 phút
@@ -58,8 +60,14 @@ def revoked_token_callback(jwt_header, jwt_payload):
 
 # MOCK DATABASE
 USERS = {
-    "user1": {"password": "123", "role": "user", "scopes": ["read:items"]},
-    "admin1": {"password": "admin", "role": "admin", "scopes": ["read:items", "write:items", "delete:items"]}
+    "user1": {"password": "123", 
+              "role": "user", 
+              "scopes": ["read:items"]},
+    "admin1": {"password": "admin", 
+               "role": "admin", 
+               "scopes": ["read:items", 
+                          "write:items", 
+                          "delete:items"]}
 }
 
 
@@ -77,44 +85,83 @@ def login():
         return jsonify({"msg": "Username hoặc password sai"}), 401
 
     user_info = USERS[username]
-    # Tạo custom claims (roles / scopes) theo yêu cầu 
+
     additional_claims = {
         "role": user_info["role"], 
         "scopes": user_info["scopes"]
     }
 
-    access_token = create_access_token(identity=username, additional_claims=additional_claims)
+    # => QUYẾT ĐỊNH PAYLOAD: identity thành sub, additional_claims sẽ được nhét thêm vào payload
+    access_token = create_access_token(identity=username, 
+    additional_claims=additional_claims)
+    # create_access_token sẽ dùng JWT_ALGORITHM (Header) + Payload (identity/claims) + JWT_SECRET_KEY (để ký ra Signature)
     refresh_token = create_refresh_token(identity=username)
 
     response = jsonify({
         "msg": "Đăng nhập thành công",
         "access_token": access_token
     })
-    # Gán HttpOnly Cookie cho response chứa refresh token
+
     set_refresh_cookies(response, refresh_token)
     
     return response, 200
 
+def base64url_decode(input_str):
+    """ Hàm hỗ trợ giải mã base64url để lấy JWT text thuần """
+    rem = len(input_str) % 4
+    if rem > 0:
+        input_str += '=' * (4 - rem)
+    return base64.urlsafe_b64decode(input_str).decode('utf-8')
+
+@app.route("/demo/anatomy", methods=["POST"])
+def jwt_anatomy():
+    """ 
+    Route demo mổ xẻ JWT để xem 3 thành phần: Header, Payload, Signature 
+    Input (Body JSON): {"token": "chuỗi_jwt"}
+    """
+    token = request.json.get("token")
+    if not token:
+        return jsonify({"msg": "Vui lòng cung cấp token"}), 400
+        
+    parts = token.split('.')
+    if len(parts) != 3:
+        return jsonify({"msg": "Chuỗi token không hợp lệ"}), 400
+        
+    encoded_header, encoded_payload, encoded_signature = parts
+    
+    return jsonify({
+        "1_header": {
+            "encoded": encoded_header,
+            "decoded": json.loads(base64url_decode(encoded_header)),
+            "note": "ứa metadata như thuật toán mã hóa (alg) và kiểu token (typ). Được mã hóa Base64Url."
+        },
+        "2_payload": {
+            "encoded": encoded_payload,
+            "decoded": json.loads(base64url_decode(encoded_payload)),
+            "note": "Chứa Claims (thông tin user, hạn dùng, role, scopes...). Có thể bị đọc bình thường qua decode đoạn Base64Url này."
+        },
+        "3_signature": {
+            "encoded": encoded_signature,
+            "note": "Chữ ký bảo vệ Token. Được ghép từ (Header + Payload + Secret Key) và băm bằng HMAC-SHA256. KHÔNG THỂ BỊ GIẢ MẠO nếu không có Secret Key."
+        },
+        "full_token": f"{encoded_header}.{encoded_payload}.{encoded_signature}"
+    }), 200
+
 
 @app.route("/refresh", methods=["POST"])
-@jwt_required(refresh=True) # Chỉ định function này ĐÒI HỎI refresh_token (nằm trong HTTP cookie)
+@jwt_required(refresh=True) 
 def refresh():
-    """ Kĩ thuật Refresh Token Rotation: Xoá thẻ cũ, cấp thẻ mới tránh thẻ tĩnh """
     identity = get_jwt_identity()
     old_jti = get_jwt()["jti"]
     
-    # 1. Thu hồi JTI cũ (vào sổ đen)
     BLOCKLIST.add(old_jti)
 
-    # 2. Cấp lại thông tin (Custom Claims)
     user_info = USERS[identity]
     additional_claims = {"role": user_info["role"], "scopes": user_info["scopes"]}
 
-    # 3. Ký cặp Token mới
     new_access_token = create_access_token(identity=identity, additional_claims=additional_claims)
     new_refresh_token = create_refresh_token(identity=identity)
 
-    # 4. Trả về cho client
     response = jsonify({
         "msg": "Làm mới (Refresh) token thành công, jti cũ bị block.",
         "access_token": new_access_token
@@ -143,7 +190,7 @@ def protected():
 def admin_only():
     """ Route chỉ với ROLE: Admin """
     claims = get_jwt()
-    # Kiểm tra authorization
+
     if claims.get("role") != "admin":
         return jsonify({"msg": "Lỗi 403 cấm vào. Chỉ có Admin mới được phép.", "error": "forbidden"}), 403
         
