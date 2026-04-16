@@ -1,5 +1,7 @@
 import hashlib
 import json
+import jwt
+import datetime
 from functools import wraps
 from flask import Flask, request, jsonify
 
@@ -11,8 +13,8 @@ books = [
     {'id': 2, 'title': 'To Kill a Mockingbird', 'author': 'Harper Lee', 'year': 1960}
 ]
 
-# Một Master Token đơn giản để minh hoạ tính Stateless (không lưu session server)
-API_TOKEN = "my-secret-token"
+# Secret key dùng để mã hoá JSON Web Token
+JWT_SECRET = "super-secret-key"
 
 # --- HELPER FUNCTIONS ---
 
@@ -20,8 +22,8 @@ def require_auth(f):
     """
     Decorator dùng để kiểm tra Authentication.
     Minh hoạ tính Stateless:
-    Mỗi request đều phải mang 'Authorization' header. 
-    Server không hề biết trước tài khoản nào đang đăng nhập qua Cookie/Session.
+    Mỗi request đều phải mang 'Authorization: Bearer <jwt-token>' header. 
+    Server không hề biết trước tài khoản nào đang đăng nhập qua Cookie/Session, nó chỉ xác minh chữ ký mã hoá.
     """
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -31,8 +33,16 @@ def require_auth(f):
             return jsonify({'error': 'Unauthorized', 'message': 'Missing or invalid Authorization header. Expected "Bearer <token>"'}), 401
         
         token = auth_header.split(' ')[1]
-        if token != API_TOKEN:
-            return jsonify({'error': 'Unauthorized', 'message': 'Invalid token'}), 401
+        try:
+            # Xác thực chữ ký và kiểm tra xem token đã hết hạn hay chưa (exp payload)
+            decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            # Gắn thông tin người dùng vào context của request 
+            request.user = decoded.get('user')
+        except jwt.ExpiredSignatureError:
+            return jsonify({'error': 'Unauthorized', 'message': 'JWT Token has expired. Please login again.'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Unauthorized', 'message': 'Invalid JWT Token.'}), 401
+            
         return f(*args, **kwargs)
     return decorated
 
@@ -60,6 +70,23 @@ def add_hateoas_links(book):
     }
 
 # --- 5 SCENARIOS (ENDPOINTS) ---
+
+# --- (Mới cập nhật) Endpoint Sinh JWT Token (Đăng nhập) ---
+@app.route('/api/v1/login', methods=['POST'])
+def login():
+    """Xác thực tài khoản và trả về JWT"""
+    data = request.get_json()
+    if data and data.get('username') == 'admin' and data.get('password') == '123':
+        # Tạo thông tin Payload với người dùng và hạn sử dụng token (exp)
+        # Payload sẽ chứa UserInfo và Thời gian hết hạn (1 giờ)
+        payload = {
+            'user': data['username'],
+            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+        }
+        token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+        return jsonify({'token': token})
+        
+    return jsonify({'error': 'Unauthorized', 'message': 'Sai username hoặc password'}), 401
 
 # Tình huống 1: Lấy danh sách (Client-Server & Cacheable thông qua Max-Age)
 @app.route('/api/v1/books', methods=['GET'])
