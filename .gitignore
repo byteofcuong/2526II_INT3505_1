@@ -1,11 +1,19 @@
 docs.html
 generated-server/
-openapitools.json
-swagger.json
+openapi-comparison/0_OpenAPI/openapitools.json
+
+openapi-comparison/1_APIBlueprint/openapitools.json
+openapi-comparison/1_APIBlueprint/package-lock.json
+openapi-comparison/1_APIBlueprint/swagger.json
+
+openapi-comparison/2_RAML/package-lock.json
+openapi-comparison/2_RAML/openapitools.json
+
+openapi-comparison/3_TypeSpec/openapitools.json
 openapi-comparison/3_TypeSpec/node_modules/
 openapi-comparison/3_TypeSpec/generated/
 openapi-comparison/3_TypeSpec/package-lock.json
-openapi-comparison/1_APIBlueprint/package-lock.json
-openapi-comparison/2_RAML/package-lock.json
+
+Week7/Demo/backend/node_modules
 
 

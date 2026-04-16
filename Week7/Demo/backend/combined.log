@@ -1,0 +1,2 @@
+{"level":"info","message":"Connected to MongoDB successfully","service":"user-service","timestamp":"2026-04-16T12:12:41.227Z"}
+{"level":"info","message":"Express server running","service":"user-service","timestamp":"2026-04-16T12:12:41.237Z"}

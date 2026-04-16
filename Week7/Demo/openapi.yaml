@@ -1,0 +1,102 @@
+openapi: 3.0.0
+info:
+  title: Product REST API
+  description: Một mô phỏng API quản lý Sản phẩm dùng để Generate NodeJS Backend và kết nối MongoDB.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Máy chủ Local
+paths:
+  /products:
+    get:
+      summary: Lấy danh sách tất cả sản phẩm
+      operationId: getProducts
+      responses:
+        '200':
+          description: Một mảng các sản phẩm
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      summary: Thêm một sản phẩm mới
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '201':
+          description: Tạo thành công
+  /products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID của sản phẩm (MongoDB ObjectID)
+        schema:
+          type: string
+    get:
+      summary: Lấy chi tiết thông tin một sản phẩm
+      operationId: getProductById
+      responses:
+        '200':
+          description: Trả về một đối tượng sản phẩm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Không tìm thấy sản phẩm
+    put:
+      summary: Chỉnh sửa thông tin sản phẩm
+      operationId: updateProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '200':
+          description: Cập nhật thành công
+    delete:
+      summary: Xoá một sản phẩm
+      operationId: deleteProduct
+      responses:
+        '204':
+          description: Xoá thành công
+components:
+  schemas:
+    Product:
+      type: object
+      required:
+        - _id
+        - name
+        - price
+      properties:
+        _id:
+          type: string
+          description: Mã tự động sinh ra bởi MongoDB
+        name:
+          type: string
+          example: "Laptop Gaming Asus"
+        price:
+          type: number
+          example: 1550.5
+    ProductInput:
+      type: object
+      required:
+        - name
+        - price
+      properties:
+        name:
+          type: string
+          example: "Laptop Gaming Asus"
+        price:
+          type: number
+          example: 1550.5

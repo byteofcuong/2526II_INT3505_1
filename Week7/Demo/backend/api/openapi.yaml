@@ -1,0 +1,135 @@
+openapi: 3.0.0
+info:
+  description: Một mô phỏng API quản lý Sản phẩm dùng để Generate NodeJS Backend và
+    kết nối MongoDB.
+  title: Product REST API
+  version: 1.0.0
+servers:
+- description: Máy chủ Local
+  url: http://localhost:8080/api/v1
+paths:
+  /products:
+    get:
+      operationId: getProducts
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Product"
+                type: array
+          description: Một mảng các sản phẩm
+      summary: Lấy danh sách tất cả sản phẩm
+      x-eov-operation-handler: controllers/DefaultController
+    post:
+      operationId: createProduct
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+        required: true
+      responses:
+        "201":
+          description: Tạo thành công
+      summary: Thêm một sản phẩm mới
+      x-eov-operation-handler: controllers/DefaultController
+  /products/{id}:
+    delete:
+      operationId: deleteProduct
+      parameters:
+      - description: ID của sản phẩm (MongoDB ObjectID)
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Xoá thành công
+      summary: Xoá một sản phẩm
+      x-eov-operation-handler: controllers/DefaultController
+    get:
+      operationId: getProductById
+      parameters:
+      - description: ID của sản phẩm (MongoDB ObjectID)
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+          description: Trả về một đối tượng sản phẩm
+        "404":
+          description: Không tìm thấy sản phẩm
+      summary: Lấy chi tiết thông tin một sản phẩm
+      x-eov-operation-handler: controllers/DefaultController
+    put:
+      operationId: updateProduct
+      parameters:
+      - description: ID của sản phẩm (MongoDB ObjectID)
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+        required: true
+      responses:
+        "200":
+          description: Cập nhật thành công
+      summary: Chỉnh sửa thông tin sản phẩm
+      x-eov-operation-handler: controllers/DefaultController
+components:
+  schemas:
+    Product:
+      example:
+        price: 1550.5
+        name: Laptop Gaming Asus
+        _id: _id
+      properties:
+        _id:
+          description: Mã tự động sinh ra bởi MongoDB
+          type: string
+        name:
+          example: Laptop Gaming Asus
+          type: string
+        price:
+          example: 1550.5
+          type: number
+      required:
+      - _id
+      - name
+      - price
+      type: object
+    ProductInput:
+      example:
+        price: 1550.5
+        name: Laptop Gaming Asus
+      properties:
+        name:
+          example: Laptop Gaming Asus
+          type: string
+        price:
+          example: 1550.5
+          type: number
+      required:
+      - name
+      - price
+      type: object
