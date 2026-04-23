@@ -1,0 +1,45 @@
+{
+	"info": {
+		"name": "Week8 API Automation Testing",
+		"description": "Bài tập tự động hoá với Postman. Sinh viên cần bổ sung thêm PM Scripts cho các Endpoint GET_ID, POST, PUT, DELETE.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "GET All Products (Mẫu)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test(\"Verify Status Code is 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Verify Response Time is fast (under 200ms)\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(200);",
+							"});",
+							"",
+							"pm.test(\"Verify Data is an Array\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.be.an(\"array\");",
+							"});"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:5000/products",
+					"protocol": "http",
+					"host": ["127", "0", "0", "1"],
+					"port": "5000",
+					"path": ["products"]
+				}
+			}
+		}
+	]
+}
