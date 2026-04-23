@@ -1,0 +1,188 @@
+{
+  "info": {
+    "_postman_id": "b1b2f4f2-5c91-450f-a7e1-38290f6705f1",
+    "name": "Equipment API Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Create Equipment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"Response has ID\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('id');",
+              "    pm.environment.set(\"eq_id\", jsonData.id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"EQ-1001\",\n    \"name\": \"Lenovo Thinkpad\",\n    \"type\": \"Laptop\",\n    \"install_date\": \"2024-04-20\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/equipments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "equipments"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Get All Equipments",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response is array\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/equipments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "equipments"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Get Equipment by ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Code is correct\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.code).to.eql(\"EQ-1001\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/equipments/{{eq_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "equipments",
+            "{{eq_id}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Update Equipment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"Lenovo Thinkpad Updated\",\n    \"maintenance_date\": \"2024-12-31\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/equipments/{{eq_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "equipments",
+            "{{eq_id}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Delete Equipment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/equipments/{{eq_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "equipments",
+            "{{eq_id}}"
+          ]
+        }
+      }
+    }
+  ]
+}
