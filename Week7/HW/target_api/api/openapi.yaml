@@ -1,0 +1,192 @@
+openapi: 3.0.0
+info:
+  description: A complete API specification for managing Product resources.
+  title: Product API
+  version: 1.0.0
+servers:
+- description: Local development server
+  url: http://localhost:8080/api
+paths:
+  /products:
+    get:
+      description: Retrieve a list of all products in the system.
+      operationId: productsGET
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Product"
+                type: array
+          description: A list of products.
+      summary: Get all products
+      x-eov-operation-handler: controllers/DefaultController
+    post:
+      description: Add a new product to the inventory.
+      operationId: productsPOST
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+          description: Product successfully created.
+        "400":
+          description: Invalid input
+      summary: Create a new product
+      x-eov-operation-handler: controllers/DefaultController
+  /products/{id}:
+    delete:
+      description: Remove a product from the inventory by its ID.
+      operationId: productsIdDELETE
+      parameters:
+      - description: The unique identifier of the product.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+        style: simple
+      responses:
+        "204":
+          description: Product successfully deleted.
+        "404":
+          description: Product not found.
+      summary: Delete a product
+      x-eov-operation-handler: controllers/DefaultController
+    get:
+      description: Retrieve detailed information about a specific product.
+      operationId: productsIdGET
+      parameters:
+      - description: The unique identifier of the product.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+          description: Product details.
+        "404":
+          description: Product not found.
+      summary: Get a product by ID
+      x-eov-operation-handler: controllers/DefaultController
+    put:
+      description: Update the attributes of an existing product.
+      operationId: productsIdPUT
+      parameters:
+      - description: The unique identifier of the product.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+          description: Product successfully updated.
+        "400":
+          description: Invalid input
+        "404":
+          description: Product not found.
+      summary: Update a product
+      x-eov-operation-handler: controllers/DefaultController
+components:
+  schemas:
+    Product:
+      example:
+        price: 29.99
+        name: Wireless Ergonomic Mouse
+        description: "A comfortable, vertical wireless mouse to reduce wrist strain."
+        id: 101
+        category: Electronics
+        stock: 150
+      properties:
+        id:
+          description: The unique identifier of the product.
+          example: 101
+          type: integer
+        name:
+          description: The name of the product.
+          example: Wireless Ergonomic Mouse
+          type: string
+        price:
+          description: The price of the product in USD.
+          example: 29.99
+          format: float
+          type: number
+        category:
+          description: The category the product belongs to.
+          example: Electronics
+          type: string
+        stock:
+          description: The quantity of the product currently in stock.
+          example: 150
+          type: integer
+        description:
+          description: A detailed description of the product.
+          example: "A comfortable, vertical wireless mouse to reduce wrist strain."
+          type: string
+      required:
+      - id
+      - name
+      - price
+      type: object
+    ProductInput:
+      example:
+        price: 29.99
+        name: Wireless Ergonomic Mouse
+        description: "A comfortable, vertical wireless mouse to reduce wrist strain."
+        category: Electronics
+        stock: 150
+      properties:
+        name:
+          description: The name of the product.
+          example: Wireless Ergonomic Mouse
+          type: string
+        price:
+          description: The price of the product in USD.
+          example: 29.99
+          format: float
+          type: number
+        category:
+          description: The category the product belongs to.
+          example: Electronics
+          type: string
+        stock:
+          description: The quantity of the product currently in stock.
+          example: 150
+          type: integer
+        description:
+          description: A detailed description of the product.
+          example: "A comfortable, vertical wireless mouse to reduce wrist strain."
+          type: string
+      required:
+      - name
+      - price
+      type: object
