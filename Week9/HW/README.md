@@ -91,3 +91,53 @@ Tương tự Custom Header, bạn **KHÔNG THỂ test trên thanh địa chỉ t
   curl -i -H "Accept: application/vnd.company.v2+json" http://localhost:5004/api/users
   ```
   *Trong Terminal, bạn sẽ thấy dòng `Content-Type: application/vnd.company.v2+json` xuất hiện trước phần dữ liệu JSON.*
+
+---
+
+## 5. Giải pháp Kiến trúc: Parallel Running (Chạy Song Song)
+Thay vì dùng `if/else` để sửa đè mã nguồn cũ hoặc dùng chung một API Server, chúng ta tách V1 và V2 ra thành các tiến trình (process) hoặc server hoàn toàn độc lập.
+Điều này giúp đảm bảo:
+- **Zero Churn**: Khách hàng cũ không bị ép nâng cấp, code V1 chạy ổn định không lo bị ảnh hưởng bởi lỗi của V2.
+- **Sandbox**: V2 thoải mái dùng công nghệ mới, database mới, cấu trúc mới.
+- **Monitoring**: Dễ dàng theo dõi server V1 còn ai dùng không để tắt.
+
+Mình đã chuẩn bị sẵn **2 cách thực hiện** Parallel cho bạn:
+
+### Cách A: Parallel Vật Lý (Microservices + API Gateway)
+Cách này là đúng chuẩn "Parallel" thực tế nhất ở quy mô lớn.
+1. Mở Terminal 1 và chạy V1: `python parallel_v1_app.py` (Port 5011)
+2. Mở Terminal 2 và chạy V2: `python parallel_v2_app.py` (Port 5012)
+3. Mở Terminal 3 và chạy Gateway: `python parallel_gateway.py` (Port 5010)
+
+**Cách Test (Chỉ cần gọi vào cổng 5010 của Gateway):**
+- V1: `curl http://localhost:5010/api/v1/users`
+- V2: `curl http://localhost:5010/api/v2/users`
+*(Gateway sẽ tự động định tuyến ngầm request đến server tương ứng)*
+
+### Cách B: Parallel Logic (Dùng Flask Blueprint)
+Nếu dự án nhỏ, không muốn mở 3 terminal, bạn có thể gom V1 và V2 chạy trên cùng 1 server nhưng được cách ly mã nguồn hoàn toàn bằng **Blueprint**.
+- **Khởi động server:** `python parallel_blueprint.py` (Chạy ở Port 5013)
+
+**Cách Test:**
+- V1: `curl http://localhost:5013/api/v1/users`
+- V2: `curl http://localhost:5013/api/v2/users`
+
+---
+
+## 6. Giải pháp Kiến trúc: Adapter (Contract Bridge)
+Thay vì duy trì cả 2 bộ mã nguồn cho V1 và V2 (dễ dẫn đến lặp code, lặp logic, bug gấp đôi), chúng ta chỉ duy trì **Core Logic duy nhất theo chuẩn V2**.
+V1 lúc này chỉ đóng vai trò như một "Adapter" hoặc "Cái Cầu (Bridge)":
+1. V1 nhận Request từ Client cũ.
+2. V1 gọi Core Logic (V2).
+3. Core Logic trả về dữ liệu phức tạp của V2.
+4. V1 **hạ cấp / cắt gọt (downgrade)** dữ liệu đó xuống cho đúng với cấu trúc đơn giản ngày xưa mà Client cũ mong đợi.
+
+Điều này giúp hệ thống luôn giữ được nguyên tắc **Single Source of Truth** (Chỉ có một luồng sự thật) nhưng vẫn không phá vỡ hợp đồng (Contract) với khách hàng cũ.
+
+- **Khởi động server:** `python adapter_bridge_versioning.py` (Chạy ở Port 5014)
+
+**Cách Test (Dễ dàng qua trình duyệt):**
+- **V2 (Gốc):** `curl http://localhost:5014/api/v2/users`
+  *Sẽ trả về danh sách user chi tiết kèm role, email.*
+- **V1 (Adapter):** `curl http://localhost:5014/api/v1/users`
+  *Vẫn gọi chung 1 hàm logic với V2 bên dưới hệ thống, nhưng kết quả trả ra đã bị Adapter gọt bớt, chỉ còn lại danh sách tên mộc mạc như bản cũ.*
