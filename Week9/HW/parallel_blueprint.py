@@ -2,7 +2,7 @@ from flask import Flask, Blueprint, jsonify
 
 app = Flask(__name__)
 
-# BLUEPRINT 1: DÀNH CHO V1 (Legacy)
+# V1 (Legacy)
 v1_blueprint = Blueprint('v1', __name__, url_prefix='/api/v1')
 
 @v1_blueprint.route('/users', methods=['GET'])
@@ -10,7 +10,7 @@ def get_users_v1():
     # V1 có thể giữ nguyên code cũ, import thư viện cũ
     return jsonify({"version": "v1", "users": ["Alice", "Bob"]})
 
-# BLUEPRINT 2: DÀNH CHO V2 (Sandbox/New)
+# V2 (Sandbox/New)
 v2_blueprint = Blueprint('v2', __name__, url_prefix='/api/v2')
 
 @v2_blueprint.route('/users', methods=['GET'])
@@ -24,7 +24,6 @@ def get_users_v2():
         ]
     })
 
-# Đăng ký cả 2 Blueprint vào cùng một Application
 app.register_blueprint(v1_blueprint)
 app.register_blueprint(v2_blueprint)
 

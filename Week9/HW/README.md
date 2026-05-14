@@ -109,18 +109,19 @@ Cách này là đúng chuẩn "Parallel" thực tế nhất ở quy mô lớn.
 2. Mở Terminal 2 và chạy V2: `python parallel_v2_app.py` (Port 5012)
 3. Mở Terminal 3 và chạy Gateway: `python parallel_gateway.py` (Port 5010)
 
-**Cách Test (Chỉ cần gọi vào cổng 5010 của Gateway):**
-- V1: `curl http://localhost:5010/api/v1/users`
-- V2: `curl http://localhost:5010/api/v2/users`
+**Cách Test (Dễ dàng qua trình duyệt):**
+Bạn chỉ cần gõ đường dẫn sau vào trình duyệt:
+- Mở trình duyệt và truy cập: `http://localhost:5010/api/v1/users` (Để xem V1)
+- Mở trình duyệt và truy cập: `http://localhost:5010/api/v2/users` (Để xem V2)
 *(Gateway sẽ tự động định tuyến ngầm request đến server tương ứng)*
 
 ### Cách B: Parallel Logic (Dùng Flask Blueprint)
 Nếu dự án nhỏ, không muốn mở 3 terminal, bạn có thể gom V1 và V2 chạy trên cùng 1 server nhưng được cách ly mã nguồn hoàn toàn bằng **Blueprint**.
 - **Khởi động server:** `python parallel_blueprint.py` (Chạy ở Port 5013)
 
-**Cách Test:**
-- V1: `curl http://localhost:5013/api/v1/users`
-- V2: `curl http://localhost:5013/api/v2/users`
+**Cách Test (Dễ dàng qua trình duyệt):**
+- Mở trình duyệt và truy cập: `http://localhost:5013/api/v1/users` (Để xem V1)
+- Mở trình duyệt và truy cập: `http://localhost:5013/api/v2/users` (Để xem V2)
 
 ---
 
@@ -137,7 +138,7 @@ V1 lúc này chỉ đóng vai trò như một "Adapter" hoặc "Cái Cầu (Brid
 - **Khởi động server:** `python adapter_bridge_versioning.py` (Chạy ở Port 5014)
 
 **Cách Test (Dễ dàng qua trình duyệt):**
-- **V2 (Gốc):** `curl http://localhost:5014/api/v2/users`
+- **V2 (Gốc):** Mở trình duyệt và truy cập `http://localhost:5014/api/v2/users`
   *Sẽ trả về danh sách user chi tiết kèm role, email.*
-- **V1 (Adapter):** `curl http://localhost:5014/api/v1/users`
+- **V1 (Adapter):** Mở trình duyệt và truy cập `http://localhost:5014/api/v1/users`
   *Vẫn gọi chung 1 hàm logic với V2 bên dưới hệ thống, nhưng kết quả trả ra đã bị Adapter gọt bớt, chỉ còn lại danh sách tên mộc mạc như bản cũ.*
