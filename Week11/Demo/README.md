@@ -1,6 +1,6 @@
-# Hệ Thống Microservices Demo - Hướng Dẫn Kiến Trúc & Kiểm Thử
+# Hệ Thống Microservices Demo - Hướng Dẫn Kiến Trúc & Kiểm Thử (Cập nhật Phase 2)
 
-Tài liệu này cung cấp phân tích kiến trúc sâu sắc cho phần đầu tiên của hệ sinh thái microservices demo được xây dựng bằng Python Flask, trình bày các mẫu thiết kế API nâng cao (Advanced API Design Patterns) và hướng dẫn kiểm thử chi tiết từng bước thông qua các lệnh `curl` trên Terminal.
+Tài liệu này cung cấp phân tích kiến trúc sâu sắc cho cả hai giai đoạn (Phase 1 & Phase 2) của hệ sinh thái microservices demo được xây dựng bằng Python Flask, trình bày các mẫu thiết kế API nâng cao (Advanced API Design Patterns) và hướng dẫn kiểm thử chi tiết từng bước thông qua các lệnh `curl` trên Terminal.
 
 ---
 
@@ -12,7 +12,7 @@ Dưới đây là chi tiết phân tích cách thức triển khai và vai trò 
 * **Vị trí triển khai**: Hàm `get_order(order_id)` tại dòng định tuyến `@app.route("/api/v1/orders/<int:order_id>", methods=["GET"])`.
 * **Cơ chế hoạt động**: 
   * API tiếp nhận định danh tài nguyên duy nhất (`order_id`) trực tiếp qua URL đường dẫn.
-  * Truy cập vào từ điển bộ nhớ `ORDERS_DB` với độ phức tạp thời gian đạt mức hằng số $O(1)$.
+  * Truy cập vào từ danh sách bộ nhớ `ORDERS_DB` với độ phức tạp thời gian đạt mức hằng số $O(1)$.
   * Nếu tài nguyên không tồn tại, hệ thống trả về mã trạng thái tiêu chuẩn `404 Not Found` kèm payload lỗi định dạng chuẩn (`error` và `message`).
   * Nếu tìm thấy tài nguyên, hệ thống sao chép bản ghi dữ liệu gốc và làm phong phú thêm bằng việc gắn các liên kết trạng thái HATEOAS thích hợp trước khi trả về kết quả định dạng JSON cùng mã trạng thái `200 OK`.
 * **Vai trò trong hệ thống Enterprise**:
@@ -64,9 +64,35 @@ Dưới đây là chi tiết phân tích cách thức triển khai và vai trò 
   * SSE cung cấp một giải pháp truyền tải đẩy thời gian thực cực kỳ gọn nhẹ so với WebSockets vì nó chạy trực tiếp trên giao thức HTTP tiêu chuẩn, dễ dàng vượt qua các bức tường lửa (Firewalls) và tương thích tốt với các cơ chế cân bằng tải (Load Balancers).
   * Lý tưởng cho các bảng theo dõi trạng thái (Dashboards), theo dõi tiến trình xử lý đơn hàng từ các hệ thống ERP/kho bãi chạy ngầm mà không cần thực hiện kỹ thuật liên tục thăm dò (Polling) gây quá tải máy chủ.
 
+### F. CRUD Update & Business Logic State Transition (Cập nhật Trạng Thái Nghiệp Vụ - Phase 2)
+* **Vị trí triển khai**: Hàm `pay_order(order_id)` tại định tuyến `@app.route("/api/v1/orders/<int:order_id>/pay", methods=["POST"])`.
+* **Cơ chế hoạt động**:
+  * Tiếp nhận yêu cầu thanh toán cho một đơn hàng cụ thể.
+  * Kiểm tra thực thể đơn hàng trong kho lưu trữ `ORDERS_DB`. Trả về `404` nếu không tìm thấy.
+  * Xác thực tính hợp lệ của trạng thái nghiệp vụ hiện tại: Nếu đơn hàng đã có trạng thái `PAID`, API từ chối xử lý và phản hồi lỗi `400 Bad Request` để ngăn chặn hành vi thanh toán trùng lặp (Double Payment).
+  * Thực hiện quá trình chuyển đổi trạng thái (State Transition) từ `PENDING` thành `PAID` và cập nhật cơ sở dữ liệu.
+* **Vai trò trong hệ thống Enterprise**:
+  * Đảm bảo tính toàn vẹn của mô hình máy trạng thái (State Machine) của thực thể đơn hàng.
+  * Ngăn chặn các lỗi logic nghiêm trọng trong giao dịch tài chính ở môi trường phân tán bằng các ràng buộc xác thực trạng thái nghiêm ngặt trước khi chuyển đổi.
+
+### G. Secure Webhook Sender Pattern (Bộ Phát Webhook Bảo Mật Bất Đồng Bộ - Phase 2)
+* **Vị trí triển khai**: Hàm `send_webhook_async(order_id, price)` sử dụng thư viện mạng chuẩn `urllib.request` kết hợp mã hóa bảo mật từ các module `hmac`, `hashlib` và `uuid`.
+* **Cơ chế hoạt động**:
+  * **Thực thi bất đồng bộ**: Khi thanh toán thành công, hệ thống không giữ chân luồng xử lý chính của người dùng mà ngay lập tức khởi tạo một luồng chạy ngầm độc lập (`threading.Thread`) để gửi Webhook. Điều này giúp tối ưu hóa thời gian phản hồi (Response Time) về phía Client ở mức tối đa.
+  * **Cấu trúc Payload chuẩn**: Tạo gói dữ liệu JSON chứa định danh sự kiện duy nhất (`event_id` sử dụng UUID v4 nhằm phục vụ cơ chế xử lý trùng lặp - Idempotency), phân loại sự kiện (`type: "order.payment_succeeded"`) và trường dữ liệu chứa thông tin nghiệp vụ cốt lõi (`data`).
+  * **Ký số bảo mật HMAC-SHA256**: 
+    1. Lấy mốc thời gian Unix hiện tại dạng chuỗi (`timestamp`).
+    2. Gom nhóm thông tin: Kết hợp `f"{timestamp}.{raw_json_payload}"` thành một thông điệp chuỗi byte đồng nhất.
+    3. Mã hóa: Sử dụng thuật toán HMAC kết hợp SHA-256 cùng khóa bí mật dùng chung (`"super_secret_signing_key"`) để sinh mã chữ ký bảo mật (Hex digest).
+    4. Gắn cờ tiêu đề: Truyền tải mốc thời gian qua tiêu đề `X-Webhook-Timestamp` và chữ ký qua `X-Webhook-Signature` trên yêu cầu HTTP gửi đi.
+* **Tại sao Chữ ký HMAC-SHA256 là tối quan trọng đối với tích hợp Enterprise?**
+  1. **Xác thực danh tính (Authenticity)**: Bên nhận Webhook (Third-Party Receiver) có thể tự tính toán lại chữ ký bằng khóa bí mật dùng chung. Nếu hai chữ ký trùng khớp hoàn toàn, bên nhận có thể khẳng định 100% rằng Webhook này được gửi từ chính hệ thống lõi đáng tin cậy của chúng ta chứ không phải từ một kẻ mạo danh.
+  2. **Chống giả mạo dữ liệu (Integrity)**: Bất kỳ sự thay đổi nhỏ nào (dù chỉ là 1 ký tự) trong payload JSON trong quá trình truyền tải trên môi trường mạng đều sẽ làm sai lệch chữ ký tính toán được ở đầu nhận, giúp đầu nhận phát hiện ngay hành vi can thiệp trái phép.
+  3. **Chống tấn công phát lại (Replay Attacks)**: Kẻ tấn công có thể nghe lén gói tin Webhook và gửi lại gói tin đó nhiều lần nhằm gây ra lỗi nghiệp vụ ở hệ thống đích. Bằng cách nhúng tiêu đề `X-Webhook-Timestamp` trực tiếp vào chuỗi ký chữ ký HMAC, bên nhận có thể giới hạn thời hạn hiệu lực của chữ ký (ví dụ: từ chối các webhook có timestamp lệch quá 5 phút so với thời gian hiện tại của máy chủ nhận). K kẻ tấn công không thể sửa timestamp mà không làm hỏng chữ ký bảo mật.
+
 ---
 
-## 2. Hướng Dẫn Kiểm Thử Từng Bước (Step-by-Step Testing Guide)
+## 2. Hướng Dẫn Kiểm Thử Từng Bước (Step-by-Step Testing Guide - Phase 2)
 
 Hãy đảm bảo rằng máy chủ Flask đã được khởi chạy thành công bằng cách chạy lệnh sau trên Terminal của bạn:
 ```bash
@@ -74,76 +100,85 @@ python app_core.py
 ```
 Máy chủ sẽ hoạt động tại địa chỉ `http://localhost:5000`.
 
-### Bước 1: Kiểm thử API Truy xuất Đơn Hàng Đơn Lẻ (CRUD Read)
-Gửi yêu cầu kiểm tra đơn hàng có ID là `1`.
-```bash
-curl -i -X GET http://localhost:5000/api/v1/orders/1
-```
-* **Kết quả kỳ vọng**: Trả về thông tin đơn hàng số 1 với trạng thái `PENDING`. Quan sát trong trường `_links` phải xuất hiện hành động `"pay"` trỏ tới phương thức `POST http://localhost:5000/api/v1/orders/1/pay`.
-
-Gửi yêu cầu kiểm tra đơn hàng có ID là `2` (đơn hàng đã thanh toán):
-```bash
-curl -i -X GET http://localhost:5000/api/v1/orders/2
-```
-* **Kết quả kỳ vọng**: Trả về thông tin đơn hàng số 2 với trạng thái `PAID`. Quan sát trong trường `_links` hành động `"pay"` đã biến mất và được thay thế bằng hành động `"receipt"`.
-
-Gửi yêu cầu kiểm tra đơn hàng không tồn tại (ID là `999`):
-```bash
-curl -i -X GET http://localhost:5000/api/v1/orders/999
-```
-* **Kết quả kỳ vọng**: Trả về mã trạng thái `404 Not Found` kèm theo thông điệp lỗi JSON:
-  ```json
-  {"error": "OrderNotFound", "message": "An order with ID 999 could not be found."}
-  ```
-
----
-
-### Bước 2: Kiểm thử Phân Phối và Lọc Dữ Liệu Bộ Sưu Tập (Query & Pagination & HATEOAS)
-
-#### Kịch bản A: Lấy trang đầu tiên của tất cả đơn hàng (Mặc định limit = 2)
-```bash
-curl -i -X GET "http://localhost:5000/api/v1/orders?limit=2"
-```
-* **Kết quả kỳ vọng**:
-  * Trả về danh sách 2 đơn hàng đầu tiên (ID `1` và `2`).
-  * Trường `meta` ghi nhận `has_more: true` và `size: 2`.
-  * Trong trường `_links` ở cấp độ gốc sẽ xuất hiện một liên kết `"next"` có dạng:
-    `"next": {"href": "http://localhost:5000/api/v1/orders?limit=2&starting_after=2", ...}`
-
-#### Kịch bản B: Sử dụng liên kết `"next"` để lấy trang tiếp theo
-Sử dụng giá trị ID cuối cùng làm cursor (`starting_after=2`) để lấy tiếp 2 phần tử tiếp theo:
-```bash
-curl -i -X GET "http://localhost:5000/api/v1/orders?limit=2&starting_after=2"
-```
-* **Kết quả kỳ vọng**: Trả về đơn hàng số `3` và `4`. Liên kết `"next"` mới tiếp tục được sinh ra với `starting_after=4`.
-
-#### Kịch bản C: Lọc đơn hàng kết hợp phân trang
-Thực hiện lọc các đơn hàng chỉ có trạng thái là `PENDING`:
-```bash
-curl -i -X GET "http://localhost:5000/api/v1/orders?status=pending&limit=2"
-```
-* **Kết quả kỳ vọng**: Trả về các đơn hàng có trạng thái `PENDING` (ID `1` và `3`). Bản ghi số `2` (đã thanh toán) bị loại bỏ khỏi luồng phân trang.
-
----
-
-### Bước 3: Kiểm thử Sự Kiện Thời Gian Thực (Event-Driven SSE Stream)
-
-Mở một Terminal mới độc lập và chạy lệnh sau để lắng nghe sự kiện đẩy về từ máy chủ theo thời gian thực:
+### Bước 1: Chu bị Lắng Nghe Sự Kiện Thời Gian Thực (SSE Stream)
+Mở một Terminal mới độc lập và chạy lệnh dưới đây để kết nối vào cổng sự kiện thời gian thực:
 ```bash
 curl -N -H "Accept: text/event-stream" http://localhost:5000/api/v1/orders/stream
 ```
-*Tham số `-N` vô hiệu hóa cơ chế buffer của curl để hiển thị sự kiện ngay lập tức khi máy chủ vừa gửi.*
+*Hãy giữ Terminal này luôn mở.* Khi thực hiện thanh toán thành công ở Bước 2, bạn sẽ ngay lập tức quan sát thấy sự kiện thanh toán được đẩy trực tiếp về Terminal này theo thời gian thực mà không cần tải lại trang.
 
+---
+
+### Bước 2: Thực hiện Kiểm Thử API Thanh Toán (POST CRUD Update & State Transition)
+
+#### Kịch bản A: Thực hiện thanh toán thành công cho đơn hàng đang chờ (`PENDING`)
+Gửi yêu cầu thanh toán (`POST`) cho đơn hàng số `1`:
+```bash
+curl -i -X POST http://localhost:5000/api/v1/orders/1/pay
+```
+* **Kết quả kỳ vọng**: 
+  * Máy chủ trả về HTTP Status `200 OK` kèm theo JSON:
+    ```json
+    {
+      "message": "Payment successfully processed for order 1.",
+      "data": {
+        "id": 1,
+        "item": "Wireless Mouse",
+        "price": 25,
+        "status": "PAID",
+        "_links": {
+          "self": {
+            "href": "http://localhost:5000/api/v1/orders/1",
+            "method": "GET"
+          },
+          "receipt": {
+            "href": "http://localhost:5000/api/v1/orders/1/receipt",
+            "method": "GET"
+          }
+        }
+      }
+    }
+    ```
+  * **Quan sát Terminal SSE**: Ngay lập tức, trên Terminal SSE đang mở ở Bước 1 sẽ xuất hiện thông điệp sự kiện cập nhật trạng thái đơn hàng thời gian thực:
+    ```text
+    event: order_updated
+    data: {"event": "order_updated", "timestamp": 1779344499.1234, "data": {"event": "order.updated", "order_id": 1, "status": "PAID"}}
+    ```
+  * **Quan sát Log Máy Chủ Flask**: Bạn sẽ nhận thấy log ghi nhận nỗ lực kích hoạt gửi Webhook bảo mật dưới luồng chạy ngầm tới `http://127.0.0.1:5001/webhook/order-paid`. (Hiện tại receiver chưa chạy nên log sẽ xuất hiện thông điệp lỗi gửi webhook trong luồng ngầm nhưng tuyệt đối không gây sập máy chủ Flask chính, chứng minh tính bất đồng bộ cô lập lỗi hoàn hảo).
+
+#### Kịch bản B: Kiểm thử chặn thanh toán trùng lặp (Double Payment Protection)
+Thực hiện gửi lại yêu cầu thanh toán cho chính đơn hàng số `1` vừa được thanh toán ở trên:
+```bash
+curl -i -X POST http://localhost:5000/api/v1/orders/1/pay
+```
 * **Kết quả kỳ vọng**:
-  * Ngay lập tức nhận được thông điệp bắt tay thành công từ máy chủ:
-    ```text
-    event: handshake
-    data: {"message": "Connected to real-time orders stream"}
+  * Máy chủ phát hiện đơn hàng đã ở trạng thái `PAID`. Trả về mã lỗi `400 Bad Request` kèm theo phản hồi JSON ngăn chặn giao dịch:
+    ```json
+    {
+      "error": "OrderAlreadyPaid",
+      "message": "Order with ID 1 has already been paid and cannot be processed again."
+    }
     ```
-  * Cứ mỗi 5 giây, luồng chạy ngầm của máy chủ sẽ tạo ngẫu nhiên một đơn hàng và bạn sẽ nhận được thông điệp dạng:
-    ```text
-    event: order_created
-    data: {"event": "order_created", "timestamp": 1779344445.1234, "data": {"id": 101, "item": "Smart Watch", "price": 145, "status": "PENDING"}}
+
+#### Kịch bản C: Kiểm thử thanh toán cho đơn hàng không tồn tại
+Gửi yêu cầu thanh toán cho đơn hàng có định danh lỗi `999`:
+```bash
+curl -i -X POST http://localhost:5000/api/v1/orders/999/pay
+```
+* **Kết quả kỳ vọng**:
+  * Máy chủ trả về mã lỗi `404 Not Found` kèm JSON:
+    ```json
+    {
+      "error": "OrderNotFound",
+      "message": "An order with ID 999 could not be found."
+    }
     ```
-  * Nếu không có sự kiện nào phát sinh, sau mỗi 15 giây bạn sẽ thấy một gói tin `heartbeat` được gửi xuống để duy trì đường truyền.
-  * Nhấn `Ctrl + C` để đóng Terminal. Quan sát log phía máy chủ sẽ thấy hệ thống tự động phát hiện kết nối đóng và thực hiện thu hồi tài nguyên hàng đợi liên kết thành công mà không gây rò rỉ bộ nhớ.
+
+---
+
+### Bước 3: Kiểm thử Đọc Trạng Thái Đơn Hàng Mới (HATEOAS State Transition Verification)
+Thực hiện truy xuất thông tin chi tiết đơn hàng số `1` sau khi đã thanh toán thành công:
+```bash
+curl -i -X GET http://localhost:5000/api/v1/orders/1
+```
+* **Kết quả kỳ vọng**: Trả về trạng thái `PAID`. Điểm đặc biệt là liên kết hành động chuyển đổi trạng thái `"pay"` (`POST`) trong `_links` đã tự động biến mất và được thay thế bằng liên kết truy xuất hóa đơn thanh toán `"receipt"` (`GET`), chứng minh nguyên lý HATEOAS dẫn dắt vòng đời nghiệp vụ hoạt động chính xác tuyệt đối.

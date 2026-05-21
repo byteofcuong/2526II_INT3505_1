@@ -2,6 +2,11 @@ import time
 import json
 import queue
 import threading
+import hmac
+import hashlib
+import uuid
+import urllib.request
+import urllib.error
 from typing import Dict, Any, List, Optional
 from flask import Flask, jsonify, request, Response, url_for
 
@@ -22,6 +27,10 @@ ORDERS_DB: Dict[int, Dict[str, Any]] = {
     5: {"id": 5, "item": "UltraWide Monitor", "price": 350, "status": "PENDING"},
     6: {"id": 6, "item": "Ergonomic Office Chair", "price": 299, "status": "PENDING"},
 }
+
+# Webhook Constants
+SHARED_SECRET = "super_secret_signing_key"
+WEBHOOK_URL = "http://127.0.0.1:5001/webhook/order-paid"
 
 # =============================================================================
 # 2. EVENT-DRIVEN PATTERN: Server-Sent Events (SSE) Pub/Sub Engine
@@ -137,7 +146,66 @@ def stream_orders():
 
 
 # =============================================================================
-# 3. HATEOAS HYPERMEDIA ENGINE
+# 3. SECURE WEBHOOK DISPATCHER PATTERN (Phase 2)
+# =============================================================================
+def send_webhook_async(order_id: int, price: int):
+    """
+    PATTERN DEMONSTRATED: Secure Webhook Dispatcher
+    
+    Spawns a background thread (asynchronous non-blocking architecture) to send
+    a cryptographically signed JSON event to a third-party microservice endpoint.
+    Uses HMAC-SHA256 for integrity and authenticity verification.
+    """
+    def webhook_worker():
+        # 1. Construct Webhook Payload
+        payload = {
+            "event_id": f"evt_{uuid.uuid4().hex}",
+            "type": "order.payment_succeeded",
+            "data": {
+                "order_id": order_id,
+                "price": price
+            }
+        }
+        raw_json_payload = json.dumps(payload, separators=(',', ':'))
+        
+        # 2. Cryptographic Security Signing
+        timestamp = str(int(time.time()))
+        # Combine timestamp and raw json payload to prevent replay attacks
+        signature_payload = f"{timestamp}.{raw_json_payload}".encode("utf-8")
+        
+        # Calculate HMAC signature using shared secret
+        signature = hmac.new(
+            SHARED_SECRET.encode("utf-8"),
+            signature_payload,
+            hashlib.sha256
+        ).hexdigest()
+        
+        # 3. Dispatch Outbound HTTP Request
+        req = urllib.request.Request(
+            WEBHOOK_URL,
+            data=raw_json_payload.encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Webhook-Timestamp": timestamp,
+                "X-Webhook-Signature": signature
+            },
+            method="POST"
+        )
+        
+        try:
+            # Send payload using native Python socket client
+            with urllib.request.urlopen(req, timeout=5.0) as response:
+                response.read() # Consume response to release connection
+        except urllib.error.URLError as e:
+            # Prevent background thread failures from crashing the core Flask runtime
+            print(f"[Webhook Security Dispatcher] Dispatch failed to {WEBHOOK_URL} for Order {order_id}: {e}")
+
+    # Spawn thread in daemon mode to prevent shutting down blockers
+    threading.Thread(target=webhook_worker, daemon=True).start()
+
+
+# =============================================================================
+# 4. HATEOAS HYPERMEDIA ENGINE
 # =============================================================================
 def generate_order_links(order: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -176,7 +244,7 @@ def generate_order_links(order: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # =============================================================================
-# 4. API PATTERNS: Filtering, Keyset Pagination, and Collection HATEOAS
+# 5. API PATTERNS: Filtering, Keyset Pagination, and Collection HATEOAS
 # =============================================================================
 @app.route("/api/v1/orders", methods=["GET"])
 def get_orders():
@@ -279,7 +347,7 @@ def get_orders():
 
 
 # =============================================================================
-# 5. CRUD PATTERN: Single Resource Read
+# 6. CRUD PATTERN: Single Resource Read
 # =============================================================================
 @app.route("/api/v1/orders/<int:order_id>", methods=["GET"])
 def get_order(order_id: int):
@@ -301,6 +369,63 @@ def get_order(order_id: int):
     response_data["_links"] = generate_order_links(order)
     
     return jsonify(response_data)
+
+
+# =============================================================================
+# 7. BUSINESS LOGIC & STATE TRANSITION PATTERN (Phase 2 Update)
+# =============================================================================
+@app.route("/api/v1/orders/<int:order_id>/pay", methods=["POST"])
+def pay_order(order_id: int):
+    """
+    POST /api/v1/orders/<int:order_id>/pay
+    
+    PATTERN DEMONSTRATED: CRUD Update & State Transition, Real-time SSE Broadcast, Secure Webhook Execution
+    
+    Executes business rules to transition an order's status from PENDING to PAID.
+    Validates resource existences and blocks invalid duplicate payments.
+    On success:
+      - Persists state modifications to the store.
+      - Dispatches a real-time event through Server-Sent Events to listeners.
+      - Asynchronously dispatches a cryptographically signed webhook to third-party receiver.
+    """
+    order = ORDERS_DB.get(order_id)
+    
+    # 1. Validate resource existence
+    if not order:
+        return jsonify({
+            "error": "OrderNotFound",
+            "message": f"An order with ID {order_id} could not be found."
+        }), 404
+        
+    # 2. Block invalid state transitions
+    if order["status"] == "PAID":
+        return jsonify({
+            "error": "OrderAlreadyPaid",
+            "message": f"Order with ID {order_id} has already been paid and cannot be processed again."
+        }), 400
+        
+    # 3. Apply state transition
+    order["status"] = "PAID"
+    
+    # 4. SSE Integration: Real-time broadcast
+    sse_broadcast_payload = {
+        "event": "order.updated",
+        "order_id": order_id,
+        "status": "PAID"
+    }
+    broadcast_event("order_updated", sse_broadcast_payload)
+    
+    # 5. Secure Webhook Integration: Async thread dispatch
+    send_webhook_async(order_id, order["price"])
+    
+    # Construct standard enriched response payload
+    response_data = order.copy()
+    response_data["_links"] = generate_order_links(order)
+    
+    return jsonify({
+        "message": f"Payment successfully processed for order {order_id}.",
+        "data": response_data
+    }), 200
 
 
 # Launch the server
